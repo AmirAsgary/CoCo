@@ -79,9 +79,15 @@ void CountProfile::update(bool updateLookuptable){
   }
 
   spacedKmerType kmer = 0, nStore = 0;
-  for (size_t idx = 0; idx < seqinfo->seq.length(); idx++) {
-    if ((char) res2int[(int) seqinfo->seq[idx]] != -1) {
-      kmer = (kmer << 2) | (char) res2int[(int) seqinfo->seq[idx]];
+  /* PERF: seq.length() was re-evaluated every iteration and res2int was looked up
+   * twice per base (once in the test, once in the body). Both hoisted; the (int)
+   * cast is kept exactly as before so behaviour on any input is identical. */
+  const std::string &seqRef = seqinfo->seq;
+  const size_t seqLen = seqRef.length();
+  for (size_t idx = 0; idx < seqLen; idx++) {
+    const char code = (char) res2int[(int) seqRef[idx]];
+    if (code != -1) {
+      kmer = (kmer << 2) | code;
       nStore = nStore << 1;
     } else // found non valid nucleotide
     {
@@ -167,11 +173,19 @@ uint32_t *CountProfile::maximize() const {
   for (size_t idx = 0; idx < maxProfileLen; idx++)
     maxProfile[idx] = 1;
 
+  /* PERF: the validity test is invariant in jdx, so it was being evaluated
+   * kmerWeight (27-32) times per position instead of once, and profile[idx].count
+   * was reloaded on every inner iteration. Hoisting both lets an invalid position
+   * skip its whole inner loop. Behaviour is unchanged. */
+  const unsigned char *maskArray = translator->_mask_array;
   for (size_t idx = 0; idx < profile_length; idx++) {
+    if (!this->profile[idx].valid)
+      continue;
+    const uint32_t count = this->profile[idx].count;
     for (size_t jdx = 0; jdx < kmerWeight; jdx++) {
-      size_t pos = idx + translator->_mask_array[jdx];
-      if (this->profile[idx].valid)
-        maxProfile[pos] = std::max(this->profile[idx].count, maxProfile[pos]);
+      const size_t pos = idx + maskArray[jdx];
+      if (count > maxProfile[pos])
+        maxProfile[pos] = count;
     }
   }
 

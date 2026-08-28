@@ -41,8 +41,15 @@ void doCorrection(CountProfile &countprofile, void *args)
     CorrectorArgs *currArgs = (CorrectorArgs *) args;
     SequenceInfo *seqinfo = countprofile.getSeqInfo();
 
-    string sequence = seqinfo->seq;
-    string qual = seqinfo->qual;
+    /* PERF: these exist only so the read can be reverted when too many corrections
+     * are applied. They are written on entry and read once at the end -- no pointer
+     * escapes and doCorrection is not recursive -- so a reused buffer is safe and
+     * keeps its capacity across reads instead of allocating two fresh strings per
+     * read. thread_local rather than plain static so the reuse stays correct if the
+     * caller is ever parallelised. */
+    static thread_local string sequence, qual;
+    sequence.assign(seqinfo->seq);
+    qual.assign(seqinfo->qual);
 
     /* estimate coverage value */
     //unsigned int covEst = countprofile.calcXquantile(0.67);

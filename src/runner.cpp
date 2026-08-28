@@ -29,6 +29,15 @@ int processReads(const string &readsname,
   KSeqWrapper* kseqReader = KSeqFactory(readsname.c_str());
   CountProfile countprofile(translator, lookuptable);
 
+  /* PERF: one reusable SequenceInfo rather than new/delete per read. Assigning into
+   * the existing std::strings reuses their capacity, so a large read set no longer
+   * performs two allocations and four string constructions per record. kmerSpan is
+   * loop invariant and is now read once. Behaviour is unchanged: every field is
+   * overwritten on every iteration, so nothing carries over between reads. */
+  SequenceInfo seqinfoStorage;
+  SequenceInfo *seqinfo = &seqinfoStorage;
+  const unsigned int kmerSpan = translator->getSpan();
+
   /* iterate over every single fasta/fastq entry  */
   while(kseqReader->ReadEntry()) {
     const KSeqWrapper::KSeqEntry &seq = kseqReader->entry;
@@ -38,12 +47,18 @@ int processReads(const string &readsname,
     }
 
     /* fill profile */
-    SequenceInfo *seqinfo = new SequenceInfo{seq.name.s,
-                                             seq.comment.l!=0 ? string(seq.comment.s) : string(""),
-                                             seq.sequence.s,seq.qual.s!=NULL ? string(seq.qual.s) : string(""),
-                                             seq.qual.s!=NULL ? '@':'>'};
+    seqinfo->name.assign(seq.name.s);
+    if (seq.comment.l != 0)
+      seqinfo->comment.assign(seq.comment.s);
+    else
+      seqinfo->comment.clear();
+    seqinfo->seq.assign(seq.sequence.s);
+    if (seq.qual.s != NULL)
+      seqinfo->qual.assign(seq.qual.s);
+    else
+      seqinfo->qual.clear();
+    seqinfo->sep = seq.qual.s != NULL ? '@' : '>';
 
-    unsigned int kmerSpan = translator->getSpan();
     if (seq.sequence.l < skip + kmerSpan) {
 
       countprofile.setSeqInfo(seqinfo);
@@ -55,8 +70,6 @@ int processReads(const string &readsname,
       /* use function pointer for what to do with profile */
       processCountProfile(countprofile, processArgs, false);
     }
-
-    delete seqinfo;
   }
   delete kseqReader;
   if (!silent)

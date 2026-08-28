@@ -87,14 +87,17 @@ packedKmerType KmerTranslator::kmer2packedKmer(const spacedKmerType kmer) const 
 
   packedKmerType packedKmer = 0;
 
-  size_t j = 0;
-
-  for (size_t i = 0; i < span; i++) {
-    if (i == _mask_array[j]) {
-      packedKmer =
-        (packedKmer << 2) | (packedKmerType) ((kmer & ((spacedKmerType) 3 << (2 * (span - 1 - i)))) >> (2 * (span - 1 - i)));
-      j++;
-    }
+  /* PERF: the original walked all `span` positions and tested `i == _mask_array[j]`
+   * on each. But _mask_array already lists exactly the `weight` informative offsets,
+   * in ascending order (see the constructor), so we can walk it directly. That drops
+   * span-weight iterations (33->27 for the unik mask, 41->32 for CoCo's default) and,
+   * more importantly, removes a data-dependent branch that mispredicts in an
+   * irregular pattern set by the mask. The bit extraction is also simplified from
+   * (kmer & (3 << shift)) >> shift to (kmer >> shift) & 3, which is equivalent.
+   * The emitted bit order is unchanged, so packed k-mers are identical. */
+  for (size_t j = 0; j < weight; j++) {
+    const unsigned int shift = 2u * (unsigned int)(span - 1 - _mask_array[j]);
+    packedKmer = (packedKmer << 2) | (packedKmerType) ((kmer >> shift) & (spacedKmerType) 3);
   }
 
   return packedKmer;
