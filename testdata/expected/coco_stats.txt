@@ -1,0 +1,15 @@
+# CoCo correction on reads.err0.1pct.fq, default spaced pattern, counts.err0.1pct.h5
+# Identical from tools/bin/coco.orig (1 thread) and tools/bin/coco (4 threads).
+substitution corrections (multi kmer step): 7494
+substitution corrections (single kmer step): 417
+insertion corrections: 0
+deletion corrections: 0
+trimmed nucleotides: 0
+
+# scored against reads.perfect.fq (byte comparison, no alignment needed)
+errors present   7949   (0.0994 %)
+bases changed    7911
+TP 7911   WR 0   FN 38   FP 0
+recall    99.52 %
+precision 100.00 %
+residual  0.00048 %   (was 0.0994 %)
