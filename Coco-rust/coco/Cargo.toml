@@ -1,0 +1,35 @@
+[package]
+name = "coco"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Rust port of CoCo: consensus correction from spaced k-mer count profiles"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "coco"
+path = "src/lib.rs"
+
+[[bin]]
+name = "coco"
+path = "src/main.rs"
+
+[dependencies]
+hdf5-metno = { version = "0.10", features = ["static"] }
+hdf5-sys = { package = "hdf5-metno-sys", version = "0.10", features = ["static"] }
+rayon = "1.10"
+memchr = "2.7"
+flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
+bzip2 = { version = "0.4", features = ["static"] }
+
+[dev-dependencies]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = 1
+
+[profile.bench]
+inherits = "release"
