@@ -1,0 +1,14 @@
+#!/bin/bash
+# Run a command on a Raven GPU node. All CoCo builds/tests must go through here --
+# never on the login node and never on a CPU-only node.
+# Raven GPU nodes have 72 cores and 4 A100s, and SLURM requires roughly one GPU
+# per 18 cores requested, so the GPU count is derived from the core count.
+#   usage: ./gpurun [-t MINUTES] [-c CPUS] <command...>
+set -euo pipefail
+TIME=30
+CPUS=18
+while getopts "t:c:" o; do case $o in t) TIME=$OPTARG;; c) CPUS=$OPTARG;; esac; done
+shift $((OPTIND-1))
+GPUS=$(( (CPUS + 17) / 18 )); [ "$GPUS" -lt 1 ] && GPUS=1; [ "$GPUS" -gt 4 ] && GPUS=4
+exec srun --partition=gpu1 --gres=gpu:a100:"$GPUS" --cpus-per-task="$CPUS" \
+     --mem=$((GPUS*120))G --time="$TIME" --job-name=coco-rs bash -lc "$*"
